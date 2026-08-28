@@ -13,6 +13,12 @@ const { WebSocketServer } = require('ws');
 
 const PORT = process.env.PORT || 3000;
 const app = express();
+// nunca cacheia as telas: em kiosk o Chrome segura HTML velho por dias
+app.use((req, res, next) => {
+  if (/\.html$|^\/(host|controle|index)?$/.test(req.path))
+    res.set('Cache-Control', 'no-store, must-revalidate');
+  next();
+});
 app.use(express.static(path.join(__dirname, 'public'), { extensions: ['html'] }));
 
 function lanIP() {
@@ -86,7 +92,7 @@ wss.on('connection', (ws) => {
       const room = rooms.get(ws.room);
       if (!room) return;
       if (m.t === 'in') { // input do controle
-        return send(room.host, { t: 'in', slot: ws.slot, s: m.s, b: m.b, u: m.u });
+        return send(room.host, { t: 'in', slot: ws.slot, s: m.s, b: m.b, u: m.u, k: m.k });
       }
       if (m.t === 'ready') {
         return send(room.host, { t: 'ready', slot: ws.slot, v: !!m.v });
