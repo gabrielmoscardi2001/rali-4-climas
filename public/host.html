@@ -222,6 +222,15 @@ const bg=document.createElement('canvas');bg.width=W;bg.height=H;
   g.globalAlpha=.25;seg(PISTA+42,()=>'#000');g.globalAlpha=1;
   seg(PISTA+26,a=>bioma(a.y).solo2);
   seg(PISTA,a=>bioma(a.y).pista);
+  // guia zebrada nas bordas (mureta)
+  for(const lado of [-1,1])
+    for(let i=0;i<N;i+=6){
+      const a=P[i],b=P[wr(i+6)],na=Nr[i],nb=Nr[wr(i+6)],d=PISTA/2+4;
+      g.lineWidth=9;g.lineCap='butt';
+      g.strokeStyle=(i/6)%2?'#e2e6ea':'#d0342c';
+      g.beginPath();g.moveTo(a.x+na.x*d*lado,a.y+na.y*d*lado);
+      g.lineTo(b.x+nb.x*d*lado,b.y+nb.y*d*lado);g.stroke();
+    }
   // faixa central tracejada
   for(let i=0;i<N;i+=9){const a=P[i],b=P[wr(i+4)];
     g.lineWidth=4;g.lineCap='butt';g.strokeStyle=bioma(a.y).n==='NEVE'?'#7d95a8':'#ffffff55';
@@ -241,18 +250,8 @@ const ITENS={
   lata :{nome:'LATA',   ico:'🥫'},
   turbo:{nome:'TURBO',  ico:'⚡'}
 };
-function sorteiaItem(posicao,total){
-  const atras=posicao/Math.max(1,total);           // 0 = líder, 1 = lanterna
-  const pesos=[['oleo',2.2],['lata',3+atras*3],['buraco',1+atras*2],['turbo',1+atras*4]];
-  let s=pesos.reduce((a,b)=>a+b[1],0),r=Math.random()*s;
-  for(const [k,p] of pesos){if((r-=p)<=0)return k;}
-  return 'oleo';
-}
-let caixas=[],perigos=[],latas=[],faiscas=[];
-function montaCaixas(){
-  caixas=[];
-  for(let i=30;i<N;i+=62)for(const l of [-48,48])caixas.push({i:wr(i),l,t:0});
-}
+const LISTA=['oleo','buraco','lata','turbo'];   // cada piloto usa cada um 1x
+let perigos=[],latas=[],faiscas=[];
 
 /* ---------- estado ---------- */
 let fase='lobby', carros=[], t0=0, contaT=0, fimT=0, proxRank=1, aviso=null;
@@ -264,7 +263,7 @@ function criaCarro(v){
   return {v, cor:CORES[v], esc:ESCURO[v], nome:(vagas[v]&&vagas[v].nome)||NOMES[v],
     bot:!(vagas[v]&&vagas[v].on),
     x:P[i].x+Nr[i].x*l, y:P[i].y+Nr[i].y*l, a:Math.atan2(T[i].y,T[i].x),
-    vx:0,vy:0, i, volta:-1, item:null, dir:0, freio:0, uCnt:0, uLast:0,
+    vx:0,vy:0, i, volta:-1, itens:{oleo:1,buraco:1,lata:1,turbo:1}, dir:0, freio:0, uLast:0,
     giro:0, atordoa:0, turbo:0, fora:0, lane:l, laneT:0, hab:.9+Math.random()*.14,
     done:false, rank:0, pisca:0};
 }
@@ -280,10 +279,8 @@ function passo(dt){
     if(c.done||fase==='countdown'){c.dir=0;c.freio=1;}
 
     const i=maisPerto(c.x,c.y,c.i);
-    const lat=lateral(c.x,c.y,i);
-    const fora=Math.abs(lat)>PISTA/2;
     const b=bioma(c.y);
-    const sup=fora?{aderencia:.6,vel:.52}:{aderencia:b.aderencia,vel:b.vel};
+    const sup={aderencia:b.aderencia,vel:b.vel};
 
     // volta
     if(c.i>N*.75&&i<N*.25)c.volta++;
@@ -306,7 +303,7 @@ function passo(dt){
     let v=Math.hypot(c.vx,c.vy);
 
     if(c.giro>0){c.a+=9.5*dt;}
-    else{c.a+=c.dir*GIRO*dt*Math.min(1,v/150)*(fora?.8:1);}
+    else{c.a+=c.dir*GIRO*dt*Math.min(1,v/150);}
 
     c.vx+=fx*ACEL*dt*acelera; c.vy+=fy*ACEL*dt*acelera;
     if(c.freio>0){const kf=Math.pow(1-.84*c.freio,dt);c.vx*=kf;c.vy*=kf;}
@@ -318,28 +315,28 @@ function passo(dt){
     // aderência: velocidade escorrega até alinhar com o nariz do carro
     const k=1-Math.exp(-(c.giro>0?1.2:9*sup.aderencia)*dt);
     c.vx+=(fx*v-c.vx)*k; c.vy+=(fy*v-c.vy)*k;
-    const arr=Math.pow(fora?.45:.86,dt); c.vx*=arr; c.vy*=arr;
+    const arr=Math.pow(.86,dt); c.vx*=arr; c.vy*=arr;
 
     c.x+=c.vx*dt; c.y+=c.vy*dt;
 
-    // socorro: muito tempo fora da pista
-    c.fora=fora?c.fora+dt:0;
-    if(c.fora>2.5){const j=c.i;c.x=P[j].x;c.y=P[j].y;c.a=Math.atan2(T[j].y,T[j].x);
-      c.vx=c.vy=0;c.fora=0;}
+    // MURETA: o carro raspa na guia e volta, nunca sai do traçado
+    const j=maisPerto(c.x,c.y,c.i);
+    const dl=lateral(c.x,c.y,j), lim=PISTA/2-17;
+    if(Math.abs(dl)>lim){
+      const sobra=Math.abs(dl)-lim, sg=Math.sign(dl);
+      c.x-=Nr[j].x*sobra*sg; c.y-=Nr[j].y*sobra*sg;          // devolve pra dentro
+      const vn=c.vx*Nr[j].x+c.vy*Nr[j].y;                     // velocidade contra a guia
+      c.vx-=Nr[j].x*vn*1.2; c.vy-=Nr[j].y*vn*1.2;             // ricochete curto
+      c.vx*=.93; c.vy*=.93;                                   // raspou, perdeu ritmo
+      if(Math.abs(vn)>260&&c.raspa<=0){c.raspa=.25;bip(150,.05,'square');}
+      c.i=j;
+    }
+    c.raspa=Math.max(0,(c.raspa||0)-dt);
 
     // rastro do turbo
     if(c.turbo>0&&Math.random()<.6)
       faiscas.push({x:c.x-fx*24,y:c.y-fy*24,t:.4,c:c.cor});
 
-    // caixas
-    for(const cx of caixas){
-      if(cx.t>0){cx.t-=dt;continue;}
-      const px=P[cx.i].x+Nr[cx.i].x*cx.l, py=P[cx.i].y+Nr[cx.i].y*cx.l;
-      if((c.x-px)**2+(c.y-py)**2<30*30&&!c.item&&!c.done){
-        c.item=sorteiaItem(c.pos-1,carros.length-1);cx.t=9;c.pisca=.5;
-        bip(660,.07);manda(c.v);
-      }
-    }
     // perigos
     for(const h of perigos){
       if((h.dono===c.v&&h.novo>0)||c.imune>0)continue;
@@ -379,15 +376,16 @@ function passo(dt){
 }
 const chave=c=>c.volta*N+c.i;
 
-function usaItem(c){
-  if(!c.item||c.done||fase!=='race')return;
+function usaItem(c,tipo){
+  if(!tipo||!c.itens[tipo]||c.done||fase!=='race')return;
+  c.item=tipo;
   const fx=Math.cos(c.a),fy=Math.sin(c.a);
   if(c.item==='oleo')  perigos.push({tipo:'oleo',  x:c.x-fx*40,y:c.y-fy*40,r:44,t:9, novo:1.2,dono:c.v});
   if(c.item==='buraco')perigos.push({tipo:'buraco',x:c.x-fx*40,y:c.y-fy*40,r:34,t:11,novo:1.2,dono:c.v});
   if(c.item==='lata'){const i=maisPerto(c.x,c.y,c.i);
     latas.push({i,l:lateral(c.x,c.y,i),v:900,t:2.4,x:c.x,y:c.y,dono:c.v});bip(740,.08);}
   if(c.item==='turbo'){c.turbo=2.2;bip(980,.14);}
-  c.item=null;manda(c.v);
+  c.itens[tipo]=0;c.item=null;manda(c.v);
 }
 
 function ia(c,dt){
@@ -398,7 +396,7 @@ function ia(c,dt){
     c.laneT=1+Math.random()*2;
     const p=P[frente];
     const risco=perigos.find(h=>(h.x-p.x)**2+(h.y-p.y)**2<95*95);
-    c.lane=risco?-Math.sign(lateral(risco.x,risco.y,frente)||1)*56:(Math.random()*90-45);
+    c.lane=risco?-Math.sign(lateral(risco.x,risco.y,frente)||1)*56:(Math.random()*70-35);
   }
   const tx=P[frente].x+Nr[frente].x*c.lane, ty=P[frente].y+Nr[frente].y*c.lane;
   const erro=angDif(Math.atan2(ty-c.y,tx-c.x)-c.a);
@@ -407,7 +405,8 @@ function ia(c,dt){
   const j=wr(c.i+24);
   const curva=Math.abs(angDif(Math.atan2(T[j].y,T[j].x)-Math.atan2(T[c.i].y,T[c.i].x)));
   c.freio=Math.abs(erro)>1.2?1:cl((curva-.62)*1.3,0,.55);
-  if(c.item&&Math.random()<dt*.45)usaItem(c);
+  const tem=LISTA.filter(k=>c.itens[k]);
+  if(tem.length&&Math.random()<dt*.10)usaItem(c,tem[Math.random()*tem.length|0]);
 }
 
 /* ---------- desenho ---------- */
@@ -450,10 +449,12 @@ function hud(){
     ctx.fillStyle='#fff';ctx.font='26px Bahnschrift, sans-serif';
     let n=c.nome;while(ctx.measureText(n).width>120&&n.length>3)n=n.slice(0,-1);
     ctx.fillText(n,x+84,72);
-    ctx.font='30px sans-serif';
-    ctx.fillText(c.item?ITENS[c.item].ico:'—',x+26,126);
-    ctx.fillStyle=c.bot?'#63748a':'#8fa1b6';ctx.font='22px Bahnschrift, sans-serif';
-    ctx.fillText(c.bot?'AUTO':(c.done?`${c.rank}º FINAL`:'AO VIVO'),x+70,124);
+    ctx.font='24px sans-serif';
+    LISTA.forEach((k,n)=>{ctx.globalAlpha=c.itens[k]?1:.22;
+      ctx.fillText(ITENS[k].ico,x+24+n*42,152);});
+    ctx.globalAlpha=1;
+    ctx.fillStyle=c.bot?'#63748a':'#8fa1b6';ctx.font='20px Bahnschrift, sans-serif';
+    ctx.fillText(c.bot?'AUTO':(c.done?`${c.rank}º`:'AO VIVO'),x+84,102);
   });
 
   if(aviso&&aviso.t>0){
@@ -469,16 +470,6 @@ function hud(){
 
 function pinta(){
   ctx.drawImage(bg,0,0);
-  // caixas
-  for(const cx of caixas){
-    if(cx.t>0)continue;
-    const x=P[cx.i].x+Nr[cx.i].x*cx.l,y=P[cx.i].y+Nr[cx.i].y*cx.l;
-    ctx.save();ctx.translate(x,y);ctx.rotate(performance.now()/600);
-    ctx.fillStyle='rgba(0,0,0,.25)';ctx.beginPath();ctx.roundRect(-15,-15,30,30,7);ctx.fill();
-    ctx.fillStyle='#ffd23f';ctx.beginPath();ctx.roundRect(-13,-13,26,26,7);ctx.fill();
-    ctx.fillStyle='#8a5a00';ctx.font='700 20px Bahnschrift, sans-serif';ctx.textAlign='center';
-    ctx.fillText('?',0,7);ctx.restore();
-  }
   // perigos
   for(const h of perigos){
     ctx.globalAlpha=Math.min(1,h.t/2);
@@ -562,7 +553,7 @@ function tentaComecar(){
   comecaCorrida();
 }
 function comecaCorrida(){
-  montaCaixas();perigos=[];latas=[];faiscas=[];proxRank=1;fimT=0;aviso=null;
+  perigos=[];latas=[];faiscas=[];proxRank=1;fimT=0;aviso=null;
   carros=[1,2,3,4].map(criaCarro);
   fase='countdown';contaT=3.9;capa('conta');
   manda();
@@ -613,7 +604,7 @@ function conecta(){
       const c=carros.find(c=>c.v===m.slot);
       if(!c)return;
       c.bot=false;c.dir=cl(m.s||0,-1,1);c.freio=m.b?1:0;
-      if(m.u!==c.uLast){c.uLast=m.u;usaItem(c);}
+      if(m.u!==c.uLast){c.uLast=m.u;usaItem(c,m.k);}
     }
   };
   ws.onclose=()=>setTimeout(conecta,1500);
@@ -634,7 +625,8 @@ function manda(so){
     const c=carros.find(c=>c.v===v);
     ws.send(JSON.stringify({t:'to',v,d:{
       fase, pos:c?c.pos:0, volta:c?Math.min(Math.max(c.volta,0)+1,VOLTAS):1, voltas:VOLTAS,
-      item:c?c.item:null, rank:c?c.rank:0, nome:c?c.nome:'', total:carros.length
+      itens:c?c.itens:{oleo:1,buraco:1,lata:1,turbo:1},
+      rank:c?c.rank:0, nome:c?c.nome:'', total:carros.length
     }}));
   }
 }

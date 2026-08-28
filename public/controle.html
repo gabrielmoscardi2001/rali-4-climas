@@ -45,14 +45,14 @@
   .chip{flex:1;background:#131923;border-radius:14px;padding:10px;text-align:center}
   .chip small{display:block;color:#63748a;font-size:12px;letter-spacing:.16em}
   .chip b{font-size:30px;line-height:1.1}
-  #item{flex:none;height:20vh;min-height:120px;border-radius:20px;background:#131923;
-    border:3px dashed #26303f;display:flex;flex-direction:column;align-items:center;
-    justify-content:center;gap:2px;color:#4d5b6d;font-size:16px;letter-spacing:.16em}
-  #item .ico{font-size:56px;line-height:1}
-  #item.tem{background:#1d2432;border:3px solid var(--cor,#e8b969);color:var(--cor,#e8b969);
-    animation:pulsa 1.1s infinite}
-  #item.tem .rot{font-size:20px;font-weight:700;letter-spacing:.14em}
-  @keyframes pulsa{50%{transform:scale(.985);filter:brightness(1.25)}}
+  .itens{flex:none;display:grid;grid-template-columns:1fr 1fr;gap:9px}
+  .it{height:9.5vh;min-height:66px;border-radius:16px;background:#1d2432;
+    border:2px solid var(--cor,#e8b969);display:flex;align-items:center;justify-content:center;
+    gap:9px;color:#fff;font-size:17px;font-weight:700;letter-spacing:.1em}
+  .it .ico{font-size:30px}
+  .it:active{filter:brightness(1.5)}
+  .it.usado{background:#11161f;border-color:#222a36;color:#3f4a5a;opacity:.55}
+  .it.usado .ico{filter:grayscale(1) opacity(.45)}
   .volante{flex:1;display:flex;gap:10px;min-height:0}
   .seta{flex:1;background:#151c26;border-radius:22px;display:flex;align-items:center;
     justify-content:center;font-size:74px;color:#6b7d92}
@@ -92,7 +92,12 @@
     <div class="chip"><small>POSIÇÃO</small><b id="pos">—</b></div>
     <div class="chip"><small>VOLTA</small><b id="volta">1/3</b></div>
   </div>
-  <div id="item"><div class="ico">📦</div><div class="rot">SEM ITEM</div></div>
+  <div class="itens" id="itens">
+    <div class="it" data-k="oleo"><span class="ico">🛢️</span>ÓLEO</div>
+    <div class="it" data-k="buraco"><span class="ico">🕳️</span>BURACO</div>
+    <div class="it" data-k="lata"><span class="ico">🥫</span>LATA</div>
+    <div class="it" data-k="turbo"><span class="ico">⚡</span>TURBO</div>
+  </div>
   <div class="volante">
     <div class="seta" id="esq">◀</div>
     <div class="seta" id="dir">▶</div>
@@ -172,21 +177,18 @@ function estado(d){
       const b=document.getElementById('btPronto');
       b.textContent=d.rank?`Você foi ${d.rank}º · jogar de novo`:'Jogar de novo';
       b.className='btn prontao';vibra([60,60,120]);
+      document.querySelectorAll('.it').forEach(el=>el.classList.remove('usado'));uso=0;usoK=null;
     }
     if(d.fase==='lobby'){tela('espera');}
   }
   document.getElementById('pos').textContent=d.pos?d.pos+'º':'—';
   document.getElementById('volta').textContent=`${d.volta}/${d.voltas}`;
-  const it=document.getElementById('item');
-  const tem=!!d.item;
-  if(tem!==it.classList.contains('tem'))vibra(tem?45:20);
-  it.classList.toggle('tem',tem);
-  it.querySelector('.ico').textContent=tem?ITENS[d.item][0]:'📦';
-  it.querySelector('.rot').textContent=tem?ITENS[d.item][1]:'PEGUE UMA CAIXA';
+  if(d.itens)document.querySelectorAll('.it').forEach(el=>
+    el.classList.toggle('usado',!d.itens[el.dataset.k]));
 }
 
 /* ---- controles ---- */
-let dir=0,freio=0,uso=0,ultimo=0;
+let dir=0,freio=0,uso=0,usoK=null,ultimo=0;
 function toca(el,liga,desliga){
   const on=e=>{e.preventDefault();el.classList.add('ativa');liga();manda(true);};
   const off=e=>{e.preventDefault();el.classList.remove('ativa');desliga&&desliga();manda(true);};
@@ -198,15 +200,18 @@ function toca(el,liga,desliga){
 toca(document.getElementById('esq'),()=>dir=-1,()=>{if(dir<0)dir=0;});
 toca(document.getElementById('dir'),()=>dir=1,()=>{if(dir>0)dir=0;});
 toca(document.getElementById('freio'),()=>freio=1,()=>freio=0);
-document.getElementById('item').addEventListener('pointerdown',e=>{
-  e.preventDefault();
-  if(!document.getElementById('item').classList.contains('tem'))return;
-  uso++;vibra(70);manda(true);
+document.querySelectorAll('.it').forEach(el=>{
+  el.addEventListener('pointerdown',e=>{
+    e.preventDefault();
+    if(el.classList.contains('usado'))return;
+    el.classList.add('usado');            // trava na hora, o host confirma depois
+    uso++;usoK=el.dataset.k;vibra(70);manda(true);
+  });
 });
 function manda(forca){
   const t=performance.now();
   if(!forca&&t-ultimo<90)return;
-  ultimo=t;envia({t:'in',s:dir,b:freio,u:uso});
+  ultimo=t;envia({t:'in',s:dir,b:freio,u:uso,k:usoK});
 }
 setInterval(()=>manda(),100);
 
