@@ -157,10 +157,10 @@ const lateral=(x,y,i)=>(x-P[i].x)*Nr[i].x+(y-P[i].y)*Nr[i].y;
 
 /* ---------- biomas (por altura da tela) ---------- */
 const BIOMAS=[
-  {n:'NEVE',    ate:600,  pista:'#c6d8e6', solo:'#e9f2f8', solo2:'#cfe0ee', aderencia:.50, vel:1.00},
-  {n:'FLORESTA',ate:1050, pista:'#4a5560', solo:'#26492f', solo2:'#1c3a25', aderencia:1.00, vel:1.00},
-  {n:'SAVANA',  ate:1450, pista:'#6b5a44', solo:'#8a7442', solo2:'#6f5c34', aderencia:.85, vel:.97},
-  {n:'DESERTO', ate:9999, pista:'#9a7c52', solo:'#d9ab63', solo2:'#c1914d', aderencia:.78, vel:.95}
+  {n:'NEVE',    ate:600,  pista:'#c6d8e6', solo:'#e9f2f8', solo2:'#cfe0ee', aderencia:.66, vel:1.00},
+  {n:'FLORESTA',ate:1050, pista:'#4a5560', solo:'#26492f', solo2:'#1c3a25', aderencia:1.25, vel:1.00},
+  {n:'SAVANA',  ate:1450, pista:'#6b5a44', solo:'#8a7442', solo2:'#6f5c34', aderencia:1.05, vel:.97},
+  {n:'DESERTO', ate:9999, pista:'#9a7c52', solo:'#d9ab63', solo2:'#c1914d', aderencia:.95, vel:.95}
 ];
 const bioma=y=>BIOMAS.find(b=>y<b.ate);
 
@@ -264,19 +264,19 @@ function criaCarro(v){
     bot:!(vagas[v]&&vagas[v].on),
     x:P[i].x+Nr[i].x*l, y:P[i].y+Nr[i].y*l, a:Math.atan2(T[i].y,T[i].x),
     vx:0,vy:0, i, volta:-1, itens:{oleo:1,buraco:1,lata:1,turbo:1}, dir:0, freio:0, uLast:0,
-    giro:0, atordoa:0, turbo:0, fora:0, lane:l, laneT:0, hab:.9+Math.random()*.14,
+    giro:0, atordoa:0, turbo:0, re:0, lane:l, laneT:0, hab:.9+Math.random()*.14,
     done:false, rank:0, pisca:0};
 }
 
 /* ---------- física ---------- */
-const ACEL=500, VMAX=505, GIRO=3.5;
+const ACEL=430, VMAX=370, VRE=150, GIRO=4.1;
 function passo(dt){
   const ordem=[...carros].sort((a,b)=>chave(b)-chave(a));
   ordem.forEach((c,k)=>c.pos=k+1);
 
   for(const c of carros){
     if(c.bot&&fase==='race'&&!c.done)ia(c,dt);
-    if(c.done||fase==='countdown'){c.dir=0;c.freio=1;}
+    if(c.done||fase==='countdown'){c.dir=0;c.freio=1;c.re=0;}
 
     const i=maisPerto(c.x,c.y,c.i);
     const b=bioma(c.y);
@@ -298,23 +298,30 @@ function passo(dt){
     c.imune=Math.max(0,(c.imune||0)-dt);
     c.pisca=Math.max(0,c.pisca-dt);
 
-    const acelera=(fase==='race'&&!c.done&&c.atordoa<=0)?1:0;
+    const ligado=(fase==='race'&&!c.done&&c.atordoa<=0)?1:0;
     const fx=Math.cos(c.a),fy=Math.sin(c.a);
     let v=Math.hypot(c.vx,c.vy);
 
+    // o volante responde mesmo com o carro quase parado
     if(c.giro>0){c.a+=9.5*dt;}
-    else{c.a+=c.dir*GIRO*dt*Math.min(1,v/150);}
+    else{c.a+=c.dir*GIRO*dt*Math.min(1,.25+v/110);}
 
-    c.vx+=fx*ACEL*dt*acelera; c.vy+=fy*ACEL*dt*acelera;
+    if(ligado){
+      if(c.re){c.vx-=fx*ACEL*.8*dt; c.vy-=fy*ACEL*.8*dt;}   // ré (também serve de freio)
+      else    {c.vx+=fx*ACEL*dt;    c.vy+=fy*ACEL*dt;}
+    }
     if(c.freio>0){const kf=Math.pow(1-.84*c.freio,dt);c.vx*=kf;c.vy*=kf;}
 
     v=Math.hypot(c.vx,c.vy);
-    const vmax=VMAX*sup.vel*(c.turbo>0?1.55:1)*(c.bot?c.hab*(1+(c.pos-1)*.035):1)*(c.giro>0?.55:1);
+    const daFrente=(c.vx*fx+c.vy*fy)>=0, sg=daFrente?1:-1;
+    const vmax=daFrente
+      ? VMAX*sup.vel*(c.turbo>0?1.55:1)*(c.bot?c.hab*(1+(c.pos-1)*.035):1)*(c.giro>0?.55:1)
+      : VRE;
     if(v>vmax){c.vx*=vmax/v;c.vy*=vmax/v;v=vmax;}
 
-    // aderência: velocidade escorrega até alinhar com o nariz do carro
+    // aderência: a velocidade alinha com o nariz do carro (pra frente ou de ré)
     const k=1-Math.exp(-(c.giro>0?1.2:9*sup.aderencia)*dt);
-    c.vx+=(fx*v-c.vx)*k; c.vy+=(fy*v-c.vy)*k;
+    c.vx+=(fx*v*sg-c.vx)*k; c.vy+=(fy*v*sg-c.vy)*k;
     const arr=Math.pow(.86,dt); c.vx*=arr; c.vy*=arr;
 
     c.x+=c.vx*dt; c.y+=c.vy*dt;
@@ -404,7 +411,7 @@ function ia(c,dt){
   // freia antes de curva fechada ou quando está muito atravessado
   const j=wr(c.i+24);
   const curva=Math.abs(angDif(Math.atan2(T[j].y,T[j].x)-Math.atan2(T[c.i].y,T[c.i].x)));
-  c.freio=Math.abs(erro)>1.2?1:cl((curva-.62)*1.3,0,.55);
+  c.freio=Math.abs(erro)>1.3?.8:cl((curva-.92)*1.1,0,.4);
   const tem=LISTA.filter(k=>c.itens[k]);
   if(tem.length&&Math.random()<dt*.10)usaItem(c,tem[Math.random()*tem.length|0]);
 }
@@ -603,7 +610,7 @@ function conecta(){
     if(m.t==='in'){
       const c=carros.find(c=>c.v===m.slot);
       if(!c)return;
-      c.bot=false;c.dir=cl(m.s||0,-1,1);c.freio=m.b?1:0;
+      c.bot=false;c.dir=cl(m.s||0,-1,1);c.re=m.b?1:0;c.freio=0;
       if(m.u!==c.uLast){c.uLast=m.u;usaItem(c,m.k);}
     }
   };
