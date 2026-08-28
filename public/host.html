@@ -1,0 +1,673 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>RALI 4 CLIMAS — Tela</title>
+<style>
+  :root{
+    --carvao:#0e1116; --asfalto:#171c24; --areia:#e8b969;
+    --gelo:#8fd3ff; --neve:#f2f7fb; --brasa:#ff5a2b;
+    --p1:#ff3b30; --p2:#3d8bff; --p3:#ffcc22; --p4:#37d67a;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%;background:#05070a;overflow:hidden;cursor:none;
+    font-family:'Bahnschrift','Arial Narrow','DIN Alternate','Segoe UI',sans-serif;
+    -webkit-font-smoothing:antialiased}
+  #palco{position:absolute;left:50%;top:50%;width:1080px;height:1920px;
+    transform-origin:center;background:#0b0f14;overflow:hidden}
+  canvas{position:absolute;inset:0;width:1080px;height:1920px}
+  .capa{position:absolute;inset:0;display:none;flex-direction:column;align-items:center}
+  .capa.on{display:flex}
+
+  /* ---------- LOBBY ---------- */
+  #lobby{background:
+     radial-gradient(120% 60% at 50% 0%, #1d2836 0%, #0b0f14 60%),
+     linear-gradient(#0b0f14,#0b0f14);
+     padding:70px 60px 50px}
+  .marca{font-size:34px;letter-spacing:.44em;color:var(--areia);text-transform:uppercase}
+  h1{font-size:132px;line-height:.86;letter-spacing:-.02em;color:#fff;text-transform:uppercase;
+     margin:14px 0 6px;font-weight:700}
+  h1 em{font-style:normal;
+    background:linear-gradient(90deg,var(--areia) 0%,#fff 55%,var(--gelo) 100%);
+    -webkit-background-clip:text;background-clip:text;color:transparent}
+  .sub{font-size:33px;color:#9fb0c4;letter-spacing:.05em;margin-bottom:34px}
+  .grade{display:grid;grid-template-columns:1fr 1fr;gap:30px;width:100%}
+  .box{background:#131923;border:3px solid #232c3a;border-radius:26px;padding:24px 24px 20px;
+       display:flex;flex-direction:column;align-items:center;position:relative;overflow:hidden}
+  .box .faixa{position:absolute;top:0;left:0;right:0;height:12px}
+  .box[data-v="1"] .faixa{background:var(--p1)} .box[data-v="2"] .faixa{background:var(--p2)}
+  .box[data-v="3"] .faixa{background:var(--p3)} .box[data-v="4"] .faixa{background:var(--p4)}
+  .box .nomecar{font-size:37px;color:#fff;letter-spacing:.14em;text-transform:uppercase;margin:6px 0 16px}
+  .box img{width:290px;height:290px;border-radius:16px;background:#fff;display:block}
+  .box .estado{margin-top:16px;font-size:29px;color:#8fa1b6;letter-spacing:.06em;text-align:center;
+    min-height:36px;text-transform:uppercase}
+  .box.dentro{border-color:#3c4a5e}
+  .box.dentro .estado{color:#fff}
+  .box.pronto{border-color:var(--brasa);box-shadow:0 0 0 4px rgba(255,90,43,.16)}
+  .box.pronto .estado{color:var(--brasa)}
+  .box.dentro img{opacity:.18;filter:grayscale(1)}
+  .box .selo{position:absolute;top:150px;font-size:120px}
+  .rodape{margin-top:auto;padding-top:34px;display:flex;justify-content:space-between;
+    align-items:flex-end;width:100%;color:#7b8ca1;font-size:28px;letter-spacing:.08em}
+  .sala{font-size:29px;color:#9fb0c4}
+  .sala b{color:var(--areia);letter-spacing:.3em;font-size:44px;display:block}
+  .dica{text-align:right;line-height:1.5}
+
+  /* ---------- CONTAGEM ---------- */
+  #conta{justify-content:center;background:rgba(6,9,13,.5)}
+  #conta .n{font-size:520px;color:#fff;line-height:1;text-shadow:0 0 90px rgba(255,90,43,.7)}
+  #conta .n.vai{font-size:340px;color:var(--brasa);letter-spacing:.04em}
+
+  /* ---------- RESULTADO ---------- */
+  #fim{background:rgba(6,9,13,.93);padding:120px 70px;justify-content:flex-start}
+  #fim .marca{margin-bottom:10px}
+  #fim h2{font-size:120px;color:#fff;text-transform:uppercase;margin-bottom:60px;letter-spacing:-.01em}
+  .linha{display:flex;align-items:center;gap:34px;width:100%;background:#131923;border-radius:22px;
+    padding:30px 40px;margin-bottom:24px;border-left:16px solid #333}
+  .linha .col{font-size:66px;color:#63748a;width:120px}
+  .linha .nm{font-size:66px;color:#fff;flex:1;text-transform:uppercase;letter-spacing:.03em;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .linha .tp{font-size:44px;color:#9fb0c4;letter-spacing:.05em}
+  .linha.ouro{background:#20283a;border-left-color:var(--areia)}
+  .linha.ouro .col,.linha.ouro .tp{color:var(--areia)}
+  #fim .rodape{color:#7b8ca1;font-size:32px;justify-content:center}
+</style>
+</head>
+<body>
+<div id="palco">
+  <canvas id="cv" width="1080" height="1920"></canvas>
+
+  <div id="lobby" class="capa on">
+    <div class="marca">Ativação · Corrida 4 climas</div>
+    <h1>Rali<br><em>4 Climas</em></h1>
+    <div class="sub">Aponte a câmera do celular para o carro que você quer pilotar</div>
+    <div class="grade" id="grade"></div>
+    <div class="rodape">
+      <div class="sala">Sala<b id="cod">····</b></div>
+      <div class="dica">Do deserto à neve · 3 voltas<br>A corrida começa quando todos estiverem prontos</div>
+    </div>
+  </div>
+
+  <div id="conta" class="capa"><div class="n" id="contaN">3</div></div>
+  <div id="fim" class="capa"></div>
+</div>
+
+<script>
+/* =========================================================================
+   RALI 4 CLIMAS — tela do totem (1080x1920)
+   O host roda toda a física; os celulares só mandam input.
+   ========================================================================= */
+const W=1080, H=1920, VOLTAS=3, PISTA=176;
+const cv=document.getElementById('cv'), ctx=cv.getContext('2d');
+const CORES=[null,'#ff3b30','#3d8bff','#ffcc22','#37d67a'];
+const ESCURO=[null,'#a81a12','#1f4fa8','#a8820a','#1c8a4c'];
+const NOMES=[null,'Vermelho','Azul','Amarelo','Verde'];
+
+/* ---------- utilidades ---------- */
+const cl=(v,a,b)=>v<a?a:v>b?b:v;
+const angDif=a=>{while(a>Math.PI)a-=2*Math.PI;while(a<-Math.PI)a+=2*Math.PI;return a;};
+function rng(s){return()=>{s|=0;s=s+0x6D2B79F5|0;let t=Math.imul(s^s>>>15,1|s);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+
+/* ---------- traçado da pista ---------- */
+const CTRL=[[300,1700],[230,1480],[330,1270],[240,1060],[330,850],[240,640],[330,450],[540,330],
+            [750,450],[840,640],[750,850],[840,1060],[750,1270],[850,1480],[780,1700],[540,1815]];
+function catmull(p,t){
+  const out=[],n=p.length;
+  for(let i=0;i<n;i++){
+    const p0=p[(i-1+n)%n],p1=p[i],p2=p[(i+1)%n],p3=p[(i+2)%n];
+    for(let j=0;j<t;j++){const s=j/t,s2=s*s,s3=s2*s;
+      out.push([0.5*((2*p1[0])+(-p0[0]+p2[0])*s+(2*p0[0]-5*p1[0]+4*p2[0]-p3[0])*s2+(-p0[0]+3*p1[0]-3*p2[0]+p3[0])*s3),
+                0.5*((2*p1[1])+(-p0[1]+p2[1])*s+(2*p0[1]-5*p1[1]+4*p2[1]-p3[1])*s2+(-p0[1]+3*p1[1]-3*p2[1]+p3[1])*s3)]);}
+  }
+  return out;
+}
+const bruto=catmull(CTRL,44);
+const PASSO=10;                       // distância entre amostras
+const P=[],T=[],Nr=[];                // pontos, tangentes, normais
+(function reamostra(){
+  let acc=0;
+  for(let i=0;i<bruto.length;i++){
+    const a=bruto[i],b=bruto[(i+1)%bruto.length];
+    const dx=b[0]-a[0],dy=b[1]-a[1],d=Math.hypot(dx,dy);
+    let rest=PASSO-acc;
+    while(rest<=d){const k=rest/d;P.push({x:a[0]+dx*k,y:a[1]+dy*k});rest+=PASSO;}
+    acc=d-(rest-PASSO);
+  }
+  for(let i=0;i<P.length;i++){
+    const a=P[(i-1+P.length)%P.length],b=P[(i+1)%P.length];
+    const dx=b.x-a.x,dy=b.y-a.y,m=Math.hypot(dx,dy)||1;
+    T.push({x:dx/m,y:dy/m}); Nr.push({x:-dy/m,y:dx/m});
+  }
+  // gira o traçado para o índice 0 cair na reta de baixo (largada/chegada)
+  let s0=0,bd=1e12;
+  P.forEach((p,i)=>{const d=(p.x-540)**2+(p.y-1815)**2;if(d<bd){bd=d;s0=i;}});
+  [P,T,Nr].forEach(A=>{const cab=A.splice(0,s0);A.push(...cab);});
+})();
+const N=P.length;
+const wr=i=>((i%N)+N)%N;
+function maisPerto(x,y,dica){
+  let bi=0,bd=1e12;
+  const ini=dica==null?0:dica-45, fim=dica==null?N:dica+45;
+  for(let i=ini;i<fim;i++){const k=wr(i),d=(P[k].x-x)**2+(P[k].y-y)**2;if(d<bd){bd=d;bi=k;}}
+  if(dica!=null&&bd>260*260)return maisPerto(x,y,null);
+  return bi;
+}
+const lateral=(x,y,i)=>(x-P[i].x)*Nr[i].x+(y-P[i].y)*Nr[i].y;
+
+/* ---------- biomas (por altura da tela) ---------- */
+const BIOMAS=[
+  {n:'NEVE',    ate:600,  pista:'#c6d8e6', solo:'#e9f2f8', solo2:'#cfe0ee', aderencia:.50, vel:1.00},
+  {n:'FLORESTA',ate:1050, pista:'#4a5560', solo:'#26492f', solo2:'#1c3a25', aderencia:1.00, vel:1.00},
+  {n:'SAVANA',  ate:1450, pista:'#6b5a44', solo:'#8a7442', solo2:'#6f5c34', aderencia:.85, vel:.97},
+  {n:'DESERTO', ate:9999, pista:'#9a7c52', solo:'#d9ab63', solo2:'#c1914d', aderencia:.78, vel:.95}
+];
+const bioma=y=>BIOMAS.find(b=>y<b.ate);
+
+/* ---------- cenário desenhado uma vez ---------- */
+const bg=document.createElement('canvas');bg.width=W;bg.height=H;
+(function pintaFundo(){
+  const g=bg.getContext('2d'),r=rng(20260827);
+  // faixas de terreno com transição
+  const grad=g.createLinearGradient(0,0,0,H);
+  grad.addColorStop(0,'#eef6fb');grad.addColorStop(.28,'#dcebf5');grad.addColorStop(.31,'#2b5133');
+  grad.addColorStop(.52,'#1f3d27');grad.addColorStop(.55,'#8a7442');grad.addColorStop(.73,'#a98d4e');
+  grad.addColorStop(.76,'#d9ab63');grad.addColorStop(1,'#e6bd77');
+  g.fillStyle=grad;g.fillRect(0,0,W,H);
+
+  // textura leve
+  for(let i=0;i<2600;i++){
+    const x=r()*W,y=r()*H,b=bioma(y);
+    g.fillStyle=b.solo2;g.globalAlpha=.16+r()*.2;
+    g.fillRect(x,y,2+r()*5,2+r()*4);
+  }
+  g.globalAlpha=1;
+
+  // vegetação / relevo longe da pista
+  const longe=(x,y)=>{const i=maisPerto(x,y,null);return Math.hypot(P[i].x-x,P[i].y-y)>PISTA/2+70;};
+  for(let i=0;i<560;i++){
+    const x=30+r()*(W-60), y=30+r()*(H-60);
+    if(!longe(x,y))continue;
+    const b=bioma(y),e=.7+r()*.7;
+    g.save();g.translate(x,y);g.scale(e,e);
+    if(b.n==='DESERTO'){
+      if(r()<.62){ // cacto
+        g.fillStyle='#3f7a45';g.beginPath();g.roundRect(-8,-42,16,52,8);g.fill();
+        g.beginPath();g.roundRect(-26,-30,12,26,6);g.fill();g.fillRect(-26,-10,24,7);
+        g.fillStyle='#00000022';g.fillRect(-6,8,30,7);
+      } else {g.fillStyle='#b08a4e';g.beginPath();g.ellipse(0,0,16,10,r(),0,7);g.fill();}
+    } else if(b.n==='SAVANA'){
+      if(r()<.5){g.fillStyle='#6b5a2f';g.fillRect(-4,-16,8,20);g.fillStyle='#7f9145';
+        g.beginPath();g.ellipse(0,-24,30,12,0,0,7);g.fill();}
+      else{g.strokeStyle='#9a8a4d';g.lineWidth=3;for(let k=0;k<6;k++){g.beginPath();g.moveTo(0,0);
+        g.lineTo(-14+k*5,-16-r()*12);g.stroke();}}
+    } else if(b.n==='FLORESTA'){
+      g.fillStyle='#4a3320';g.fillRect(-4,-6,8,16);
+      g.fillStyle=r()<.5?'#2f6b3a':'#275c33';
+      g.beginPath();g.moveTo(0,-52);g.lineTo(20,-10);g.lineTo(-20,-10);g.closePath();g.fill();
+      g.beginPath();g.moveTo(0,-72);g.lineTo(15,-34);g.lineTo(-15,-34);g.closePath();g.fill();
+    } else {
+      if(r()<.55){g.fillStyle='#3d5a4a';g.beginPath();g.moveTo(0,-50);g.lineTo(19,-8);g.lineTo(-19,-8);
+        g.closePath();g.fill();g.fillStyle='#ffffff';g.beginPath();g.moveTo(0,-50);g.lineTo(11,-26);
+        g.lineTo(-11,-26);g.closePath();g.fill();}
+      else{g.fillStyle='#ffffff';g.beginPath();g.ellipse(0,0,22,11,0,0,7);g.fill();
+        g.fillStyle='#d8e8f2';g.beginPath();g.ellipse(4,3,14,7,0,0,7);g.fill();}
+    }
+    g.restore();
+  }
+
+  // pista: acostamento + asfalto, cor por bioma
+  const seg=(lg,fn)=>{for(let i=0;i<N;i+=2){const a=P[i],b=P[wr(i+3)];
+    g.lineWidth=lg;g.lineCap='round';g.strokeStyle=fn(a);g.beginPath();g.moveTo(a.x,a.y);g.lineTo(b.x,b.y);g.stroke();}};
+  g.globalAlpha=.25;seg(PISTA+42,()=>'#000');g.globalAlpha=1;
+  seg(PISTA+26,a=>bioma(a.y).solo2);
+  seg(PISTA,a=>bioma(a.y).pista);
+  // faixa central tracejada
+  for(let i=0;i<N;i+=9){const a=P[i],b=P[wr(i+4)];
+    g.lineWidth=4;g.lineCap='butt';g.strokeStyle=bioma(a.y).n==='NEVE'?'#7d95a8':'#ffffff55';
+    g.beginPath();g.moveTo(a.x,a.y);g.lineTo(b.x,b.y);g.stroke();}
+  // largada quadriculada
+  const i0=0,q=16;
+  for(let f=0;f<2;f++)for(let c=0;c<Math.floor(PISTA/q);c++){
+    const l=-PISTA/2+c*q, p=P[wr(i0+f*1)];
+    g.save();g.translate(p.x+Nr[i0].x*l,p.y+Nr[i0].y*l);g.rotate(Math.atan2(T[i0].y,T[i0].x));
+    g.fillStyle=(c+f)%2?'#111':'#fff';g.fillRect(-q/2,0,q,q);g.restore();}
+})();
+
+/* ---------- itens ---------- */
+const ITENS={
+  oleo :{nome:'ÓLEO',   ico:'🛢️'},
+  buraco:{nome:'BURACO',ico:'🕳️'},
+  lata :{nome:'LATA',   ico:'🥫'},
+  turbo:{nome:'TURBO',  ico:'⚡'}
+};
+function sorteiaItem(posicao,total){
+  const atras=posicao/Math.max(1,total);           // 0 = líder, 1 = lanterna
+  const pesos=[['oleo',2.2],['lata',3+atras*3],['buraco',1+atras*2],['turbo',1+atras*4]];
+  let s=pesos.reduce((a,b)=>a+b[1],0),r=Math.random()*s;
+  for(const [k,p] of pesos){if((r-=p)<=0)return k;}
+  return 'oleo';
+}
+let caixas=[],perigos=[],latas=[],faiscas=[];
+function montaCaixas(){
+  caixas=[];
+  for(let i=30;i<N;i+=62)for(const l of [-48,48])caixas.push({i:wr(i),l,t:0});
+}
+
+/* ---------- estado ---------- */
+let fase='lobby', carros=[], t0=0, contaT=0, fimT=0, proxRank=1, aviso=null;
+const vagas={1:null,2:null,3:null,4:null};   // {nome,on,ready}
+
+function criaCarro(v){
+  const l=[-52,52,-52,52][v-1], recuo=[0,0,7,7][v-1];
+  const i=wr(-26-recuo*3);
+  return {v, cor:CORES[v], esc:ESCURO[v], nome:(vagas[v]&&vagas[v].nome)||NOMES[v],
+    bot:!(vagas[v]&&vagas[v].on),
+    x:P[i].x+Nr[i].x*l, y:P[i].y+Nr[i].y*l, a:Math.atan2(T[i].y,T[i].x),
+    vx:0,vy:0, i, volta:-1, item:null, dir:0, freio:0, uCnt:0, uLast:0,
+    giro:0, atordoa:0, turbo:0, fora:0, lane:l, laneT:0, hab:.9+Math.random()*.14,
+    done:false, rank:0, pisca:0};
+}
+
+/* ---------- física ---------- */
+const ACEL=500, VMAX=505, GIRO=3.5;
+function passo(dt){
+  const ordem=[...carros].sort((a,b)=>chave(b)-chave(a));
+  ordem.forEach((c,k)=>c.pos=k+1);
+
+  for(const c of carros){
+    if(c.bot&&fase==='race'&&!c.done)ia(c,dt);
+    if(c.done||fase==='countdown'){c.dir=0;c.freio=1;}
+
+    const i=maisPerto(c.x,c.y,c.i);
+    const lat=lateral(c.x,c.y,i);
+    const fora=Math.abs(lat)>PISTA/2;
+    const b=bioma(c.y);
+    const sup=fora?{aderencia:.6,vel:.52}:{aderencia:b.aderencia,vel:b.vel};
+
+    // volta
+    if(c.i>N*.75&&i<N*.25)c.volta++;
+    if(c.i<N*.25&&i>N*.75)c.volta--;
+    c.i=i;
+
+    if(!c.done&&c.volta>=VOLTAS){c.done=true;c.rank=proxRank++;
+      grita(c.rank===1?`${c.nome} venceu!`:`${c.rank}º ${c.nome}`);bip(c.rank===1?880:520,.18);
+      if(c.rank===1)fimT=14;}
+
+    // efeitos
+    c.atordoa=Math.max(0,c.atordoa-dt);
+    c.turbo=Math.max(0,c.turbo-dt);
+    c.giro=Math.max(0,c.giro-dt);
+    c.imune=Math.max(0,(c.imune||0)-dt);
+    c.pisca=Math.max(0,c.pisca-dt);
+
+    const acelera=(fase==='race'&&!c.done&&c.atordoa<=0)?1:0;
+    const fx=Math.cos(c.a),fy=Math.sin(c.a);
+    let v=Math.hypot(c.vx,c.vy);
+
+    if(c.giro>0){c.a+=9.5*dt;}
+    else{c.a+=c.dir*GIRO*dt*Math.min(1,v/150)*(fora?.8:1);}
+
+    c.vx+=fx*ACEL*dt*acelera; c.vy+=fy*ACEL*dt*acelera;
+    if(c.freio>0){const kf=Math.pow(1-.84*c.freio,dt);c.vx*=kf;c.vy*=kf;}
+
+    v=Math.hypot(c.vx,c.vy);
+    const vmax=VMAX*sup.vel*(c.turbo>0?1.55:1)*(c.bot?c.hab*(1+(c.pos-1)*.035):1)*(c.giro>0?.55:1);
+    if(v>vmax){c.vx*=vmax/v;c.vy*=vmax/v;v=vmax;}
+
+    // aderência: velocidade escorrega até alinhar com o nariz do carro
+    const k=1-Math.exp(-(c.giro>0?1.2:9*sup.aderencia)*dt);
+    c.vx+=(fx*v-c.vx)*k; c.vy+=(fy*v-c.vy)*k;
+    const arr=Math.pow(fora?.45:.86,dt); c.vx*=arr; c.vy*=arr;
+
+    c.x+=c.vx*dt; c.y+=c.vy*dt;
+
+    // socorro: muito tempo fora da pista
+    c.fora=fora?c.fora+dt:0;
+    if(c.fora>2.5){const j=c.i;c.x=P[j].x;c.y=P[j].y;c.a=Math.atan2(T[j].y,T[j].x);
+      c.vx=c.vy=0;c.fora=0;}
+
+    // rastro do turbo
+    if(c.turbo>0&&Math.random()<.6)
+      faiscas.push({x:c.x-fx*24,y:c.y-fy*24,t:.4,c:c.cor});
+
+    // caixas
+    for(const cx of caixas){
+      if(cx.t>0){cx.t-=dt;continue;}
+      const px=P[cx.i].x+Nr[cx.i].x*cx.l, py=P[cx.i].y+Nr[cx.i].y*cx.l;
+      if((c.x-px)**2+(c.y-py)**2<30*30&&!c.item&&!c.done){
+        c.item=sorteiaItem(c.pos-1,carros.length-1);cx.t=9;c.pisca=.5;
+        bip(660,.07);manda(c.v);
+      }
+    }
+    // perigos
+    for(const h of perigos){
+      if((h.dono===c.v&&h.novo>0)||c.imune>0)continue;
+      if((c.x-h.x)**2+(c.y-h.y)**2<(h.r+14)**2){
+        if(h.tipo==='oleo'&&c.giro<=0){c.giro=1.1;c.imune=2.6;bip(200,.2,'sawtooth');}
+        if(h.tipo==='buraco'&&c.atordoa<=0){c.atordoa=.8;c.imune=2.6;c.vx*=.2;c.vy*=.2;h.t=0;bip(120,.25,'square');}
+      }
+    }
+  }
+
+  // colisão entre carros
+  for(let i=0;i<carros.length;i++)for(let j=i+1;j<carros.length;j++){
+    const a=carros[i],b=carros[j],dx=b.x-a.x,dy=b.y-a.y,d=Math.hypot(dx,dy);
+    if(d<38&&d>0){const e=(38-d)/2/d;a.x-=dx*e;a.y-=dy*e;b.x+=dx*e;b.y+=dy*e;
+      a.vx*=.9;a.vy*=.9;b.vx*=.9;b.vy*=.9;}
+  }
+
+  // latas voando (seguem o traçado)
+  for(const l of latas){
+    l.i+=l.v*dt/PASSO; l.t-=dt;
+    const i=wr(Math.round(l.i));
+    l.x=P[i].x+Nr[i].x*l.l; l.y=P[i].y+Nr[i].y*l.l;
+    for(const c of carros){
+      if(c.v===l.dono||c.done)continue;
+      if(c.imune>0)continue;
+      if((c.x-l.x)**2+(c.y-l.y)**2<32*32){
+        c.atordoa=.9;c.giro=.4;c.imune=2.6;c.vx*=.25;c.vy*=.25;l.t=0;bip(300,.15,'square');
+        grita(`${c.nome} levou uma lata!`);
+      }
+    }
+  }
+  latas=latas.filter(l=>l.t>0);
+  perigos.forEach(h=>{h.t-=dt;h.novo-=dt;});
+  perigos=perigos.filter(h=>h.t>0);
+  faiscas.forEach(f=>f.t-=dt);
+  faiscas=faiscas.filter(f=>f.t>0);
+}
+const chave=c=>c.volta*N+c.i;
+
+function usaItem(c){
+  if(!c.item||c.done||fase!=='race')return;
+  const fx=Math.cos(c.a),fy=Math.sin(c.a);
+  if(c.item==='oleo')  perigos.push({tipo:'oleo',  x:c.x-fx*40,y:c.y-fy*40,r:44,t:9, novo:1.2,dono:c.v});
+  if(c.item==='buraco')perigos.push({tipo:'buraco',x:c.x-fx*40,y:c.y-fy*40,r:34,t:11,novo:1.2,dono:c.v});
+  if(c.item==='lata'){const i=maisPerto(c.x,c.y,c.i);
+    latas.push({i,l:lateral(c.x,c.y,i),v:900,t:2.4,x:c.x,y:c.y,dono:c.v});bip(740,.08);}
+  if(c.item==='turbo'){c.turbo=2.2;bip(980,.14);}
+  c.item=null;manda(c.v);
+}
+
+function ia(c,dt){
+  const v=Math.hypot(c.vx,c.vy);
+  const frente=wr(c.i+9+Math.round(v/55));
+  c.laneT-=dt;
+  if(c.laneT<=0){
+    c.laneT=1+Math.random()*2;
+    const p=P[frente];
+    const risco=perigos.find(h=>(h.x-p.x)**2+(h.y-p.y)**2<95*95);
+    c.lane=risco?-Math.sign(lateral(risco.x,risco.y,frente)||1)*56:(Math.random()*90-45);
+  }
+  const tx=P[frente].x+Nr[frente].x*c.lane, ty=P[frente].y+Nr[frente].y*c.lane;
+  const erro=angDif(Math.atan2(ty-c.y,tx-c.x)-c.a);
+  c.dir=cl(erro*3.0,-1,1);
+  // freia antes de curva fechada ou quando está muito atravessado
+  const j=wr(c.i+24);
+  const curva=Math.abs(angDif(Math.atan2(T[j].y,T[j].x)-Math.atan2(T[c.i].y,T[c.i].x)));
+  c.freio=Math.abs(erro)>1.2?1:cl((curva-.62)*1.3,0,.55);
+  if(c.item&&Math.random()<dt*.45)usaItem(c);
+}
+
+/* ---------- desenho ---------- */
+function carro(c){
+  ctx.save();ctx.translate(c.x,c.y);ctx.rotate(c.a);
+  ctx.fillStyle='rgba(0,0,0,.3)';ctx.beginPath();ctx.roundRect(-19,-11,42,24,7);ctx.fill();
+  ctx.fillStyle='#1b1f26';ctx.fillRect(-14,-15,10,30);ctx.fillRect(6,-15,10,30);
+  ctx.fillStyle=c.cor;ctx.beginPath();ctx.roundRect(-22,-13,44,26,8);ctx.fill();
+  ctx.fillStyle=c.esc;ctx.beginPath();ctx.roundRect(-22,-13,12,26,[8,2,2,8]);ctx.fill();
+  ctx.fillStyle='#cfe8ff';ctx.beginPath();ctx.roundRect(2,-9,11,18,4);ctx.fill();
+  ctx.fillStyle='#ffffff88';ctx.fillRect(-6,-13,4,26);
+  if(c.turbo>0){ctx.fillStyle='#ffb01f';ctx.beginPath();ctx.moveTo(-22,-7);ctx.lineTo(-40-Math.random()*16,0);
+    ctx.lineTo(-22,7);ctx.closePath();ctx.fill();}
+  ctx.restore();
+  // etiqueta
+  ctx.font='600 22px Bahnschrift, Arial Narrow, sans-serif';ctx.textAlign='center';
+  const w=ctx.measureText(c.nome).width+22;
+  ctx.fillStyle='rgba(10,14,20,.72)';ctx.beginPath();ctx.roundRect(c.x-w/2,c.y-52,w,28,8);ctx.fill();
+  ctx.fillStyle=c.cor;ctx.fillText(c.nome,c.x,c.y-32);
+  if(c.pisca>0){ctx.globalAlpha=c.pisca*2%1;ctx.font='30px sans-serif';
+    ctx.fillText(ITENS[c.item||'turbo'].ico,c.x,c.y-62);ctx.globalAlpha=1;}
+}
+
+function hud(){
+  ctx.fillStyle='rgba(10,13,18,.9)';ctx.fillRect(0,0,W,190);
+  ctx.fillStyle='#e8b969';ctx.fillRect(0,187,W,3);
+  const eu=carros.slice().sort((a,b)=>chave(b)-chave(a));
+  const lider=eu[0];
+  ctx.textAlign='left';
+  ctx.fillStyle='#63748a';ctx.font='24px Bahnschrift, sans-serif';ctx.fillText('VOLTA',34,60);
+  ctx.fillStyle='#fff';ctx.font='700 74px Bahnschrift, sans-serif';
+  ctx.fillText(`${Math.min(Math.max(lider?lider.volta:0,0)+1,VOLTAS)}/${VOLTAS}`,32,132);
+  ctx.fillStyle='#63748a';ctx.font='22px Bahnschrift, sans-serif';ctx.fillText('DESERTO → NEVE',34,166);
+
+  eu.forEach((c,k)=>{
+    const x=228+k*212;
+    ctx.fillStyle='#161c26';ctx.beginPath();ctx.roundRect(x,28,196,134,16);ctx.fill();
+    ctx.fillStyle=c.cor;ctx.beginPath();ctx.roundRect(x,28,10,134,[16,0,0,16]);ctx.fill();
+    ctx.fillStyle='#63748a';ctx.font='700 40px Bahnschrift, sans-serif';ctx.fillText(`${k+1}º`,x+26,74);
+    ctx.fillStyle='#fff';ctx.font='26px Bahnschrift, sans-serif';
+    let n=c.nome;while(ctx.measureText(n).width>120&&n.length>3)n=n.slice(0,-1);
+    ctx.fillText(n,x+84,72);
+    ctx.font='30px sans-serif';
+    ctx.fillText(c.item?ITENS[c.item].ico:'—',x+26,126);
+    ctx.fillStyle=c.bot?'#63748a':'#8fa1b6';ctx.font='22px Bahnschrift, sans-serif';
+    ctx.fillText(c.bot?'AUTO':(c.done?`${c.rank}º FINAL`:'AO VIVO'),x+70,124);
+  });
+
+  if(aviso&&aviso.t>0){
+    ctx.globalAlpha=Math.min(1,aviso.t*2);
+    ctx.textAlign='center';ctx.fillStyle='rgba(10,13,18,.85)';
+    ctx.font='700 44px Bahnschrift, sans-serif';
+    const w=ctx.measureText(aviso.m).width+56;
+    ctx.beginPath();ctx.roundRect(W/2-w/2,952,w,72,16);ctx.fill();
+    ctx.fillStyle='#e8b969';ctx.fillText(aviso.m,W/2,1001);
+    ctx.globalAlpha=1;
+  }
+}
+
+function pinta(){
+  ctx.drawImage(bg,0,0);
+  // caixas
+  for(const cx of caixas){
+    if(cx.t>0)continue;
+    const x=P[cx.i].x+Nr[cx.i].x*cx.l,y=P[cx.i].y+Nr[cx.i].y*cx.l;
+    ctx.save();ctx.translate(x,y);ctx.rotate(performance.now()/600);
+    ctx.fillStyle='rgba(0,0,0,.25)';ctx.beginPath();ctx.roundRect(-15,-15,30,30,7);ctx.fill();
+    ctx.fillStyle='#ffd23f';ctx.beginPath();ctx.roundRect(-13,-13,26,26,7);ctx.fill();
+    ctx.fillStyle='#8a5a00';ctx.font='700 20px Bahnschrift, sans-serif';ctx.textAlign='center';
+    ctx.fillText('?',0,7);ctx.restore();
+  }
+  // perigos
+  for(const h of perigos){
+    ctx.globalAlpha=Math.min(1,h.t/2);
+    if(h.tipo==='oleo'){
+      ctx.fillStyle='#1a1526';ctx.beginPath();ctx.ellipse(h.x,h.y,h.r,h.r*.62,.4,0,7);ctx.fill();
+      ctx.beginPath();ctx.ellipse(h.x+h.r*.5,h.y+h.r*.3,h.r*.4,h.r*.3,0,0,7);ctx.fill();
+      ctx.fillStyle='#6a4fa8';ctx.globalAlpha*=.55;
+      ctx.beginPath();ctx.ellipse(h.x-h.r*.25,h.y-h.r*.15,h.r*.42,h.r*.2,.9,0,7);ctx.fill();
+      ctx.globalAlpha=Math.min(1,h.t/2);
+      ctx.fillStyle='#8f7fd6';ctx.beginPath();ctx.ellipse(h.x+6,h.y-4,h.r*.12,h.r*.07,0,0,7);ctx.fill();
+    } else {
+      ctx.fillStyle='#3a3026';ctx.beginPath();ctx.ellipse(h.x,h.y,h.r+7,h.r*.85,0,0,7);ctx.fill();
+      ctx.fillStyle='#000';ctx.beginPath();ctx.ellipse(h.x,h.y,h.r,h.r*.72,0,0,7);ctx.fill();
+      ctx.fillStyle='#00000099';ctx.beginPath();ctx.ellipse(h.x,h.y+4,h.r*.7,h.r*.5,0,0,7);ctx.fill();
+    }
+    ctx.globalAlpha=1;
+  }
+  // latas
+  for(const l of latas){ctx.save();ctx.translate(l.x,l.y);ctx.rotate(l.t*22);
+    ctx.fillStyle='#cfd6de';ctx.beginPath();ctx.roundRect(-11,-8,22,16,5);ctx.fill();
+    ctx.fillStyle='#e04a3a';ctx.fillRect(-11,-3,22,6);ctx.restore();}
+  // faíscas
+  for(const f of faiscas){ctx.globalAlpha=f.t*2;ctx.fillStyle=f.c;
+    ctx.beginPath();ctx.arc(f.x,f.y,7*f.t*2.5,0,7);ctx.fill();ctx.globalAlpha=1;}
+
+  carros.forEach(carro);
+  if(fase!=='lobby')hud();
+}
+
+/* ---------- laço ---------- */
+let ult=performance.now();
+function laco(ts){
+  requestAnimationFrame(laco);
+  const dt=cl((ts-ult)/1000,0,.05);ult=ts;
+  if(aviso)aviso.t-=dt;
+
+  if(fase==='countdown'){
+    contaT-=dt;
+    const n=Math.ceil(contaT);
+    const el=document.getElementById('contaN');
+    if(contaT<=0){fase='race';capa('');t0=performance.now();bip(880,.3);}
+    else{el.textContent=n>0?n:'VAI!';el.className=n>0?'n':'n vai';}
+    passo(dt);
+  } else if(fase==='race'){
+    passo(dt);
+    if(carros.every(c=>c.done)){fimT=0;terminaCorrida();}
+    else if(fimT>0){fimT-=dt;if(fimT<=0)terminaCorrida();}
+  }
+  pinta();
+  if(fase==='race'&&(ts|0)%3===0)manda();
+}
+requestAnimationFrame(laco);
+
+/* ---------- telas ---------- */
+const capa=id=>['lobby','conta','fim'].forEach(k=>
+  document.getElementById(k).classList.toggle('on',k===id));
+const grita=m=>{aviso={m,t:2.6};};
+
+function montaLobby(){
+  const g=document.getElementById('grade');g.innerHTML='';
+  for(let v=1;v<=4;v++){
+    const p=vagas[v];
+    const d=document.createElement('div');
+    d.className='box'+(p&&p.on?' dentro':'')+(p&&p.ready?' pronto':'');
+    d.dataset.v=v;
+    d.innerHTML=`<div class="faixa"></div><div class="nomecar">Carro ${NOMES[v]}</div>
+      <img src="${BASE}/qr?d=${encodeURIComponent(urlDe(v))}" alt="">
+      ${p&&p.on?`<div class="selo">${p.ready?'✅':'🎮'}</div>`:''}
+      <div class="estado">${p&&p.on?(p.ready?'Pronto · '+p.nome:'Aguardando '+p.nome):'Livre · escaneie'}</div>`;
+    g.appendChild(d);
+  }
+}
+function urlDe(v){
+  const base=/^(localhost|127\.)/.test(location.hostname)&&lanBase?lanBase:location.origin;
+  return `${base}${BASE}/controle?s=${sala}&v=${v}`;
+}
+function tentaComecar(){
+  const dentro=[1,2,3,4].filter(v=>vagas[v]&&vagas[v].on);
+  if(!dentro.length)return;
+  if(!dentro.every(v=>vagas[v].ready))return;
+  comecaCorrida();
+}
+function comecaCorrida(){
+  montaCaixas();perigos=[];latas=[];faiscas=[];proxRank=1;fimT=0;aviso=null;
+  carros=[1,2,3,4].map(criaCarro);
+  fase='countdown';contaT=3.9;capa('conta');
+  manda();
+}
+function terminaCorrida(){
+  fase='fim';
+  const ord=carros.slice().sort((a,b)=>(a.rank||99)-(b.rank||99)||chave(b)-chave(a));
+  const el=document.getElementById('fim');
+  el.innerHTML=`<div class="marca">Bandeirada final</div><h2>Resultado</h2>`+
+    ord.map((c,k)=>`<div class="linha ${k===0?'ouro':''}" style="border-left-color:${c.cor}">
+      <div class="col">${k+1}º</div><div class="nm">${c.nome}</div>
+      <div class="tp">${c.bot?'automático':'piloto'}</div></div>`).join('')+
+    `<div class="rodape">Nova partida em <span id="cnt">18</span>s</div>`;
+  capa('fim');
+  manda();
+  let s=18;const it=setInterval(()=>{
+    s--;const n=document.getElementById('cnt');if(n)n.textContent=s;
+    if(s<=0){clearInterval(it);voltaLobby();}
+  },1000);
+}
+function voltaLobby(){
+  fase='lobby';carros=[];perigos=[];latas=[];
+  montaLobby();capa('lobby');manda();
+  setTimeout(()=>{if(fase==='lobby')tentaComecar();},3500);   // revanche de quem já confirmou
+}
+
+/* ---------- rede ---------- */
+let ws,sala='····',lanBase='';
+// funciona na raiz do domínio ou numa subpasta (ex.: /rally)
+const BASE=location.pathname.replace(/\/[^/]*$/,'');
+function conecta(){
+  ws=new WebSocket((location.protocol==='https:'?'wss://':'ws://')+location.host+BASE);
+  ws.onopen=()=>ws.send(JSON.stringify({t:'host'}));
+  ws.onmessage=e=>{
+    const m=JSON.parse(e.data);
+    if(m.t==='room'){sala=m.code;lanBase=m.lan;
+      document.getElementById('cod').textContent=sala;montaLobby();}
+    if(m.t==='p'){
+      if(m.on)vagas[m.slot]={nome:m.name,on:true,ready:false};
+      else{vagas[m.slot]=null;const c=carros.find(c=>c.v===m.slot);if(c)c.bot=true;}
+      if(fase==='lobby'){montaLobby();tentaComecar();}
+    }
+    if(m.t==='ready'){
+      if(vagas[m.slot]){vagas[m.slot].ready=m.v;montaLobby();
+        if(fase==='lobby')tentaComecar();}
+    }
+    if(m.t==='in'){
+      const c=carros.find(c=>c.v===m.slot);
+      if(!c)return;
+      c.bot=false;c.dir=cl(m.s||0,-1,1);c.freio=m.b?1:0;
+      if(m.u!==c.uLast){c.uLast=m.u;usaItem(c);}
+    }
+  };
+  ws.onclose=()=>setTimeout(conecta,1500);
+}
+conecta();
+// sinal de vida: impede o servidor de hibernar em planos gratuitos
+setInterval(()=>{if(ws&&ws.readyState===1)ws.send(JSON.stringify({t:'ka'}));},45000);
+
+let ultEnvio=0;
+function manda(so){
+  if(!ws||ws.readyState!==1)return;
+  const agora=performance.now();
+  if(!so&&agora-ultEnvio<160)return;
+  ultEnvio=agora;
+  for(let v=1;v<=4;v++){
+    if(so&&so!==v)continue;
+    if(!vagas[v]||!vagas[v].on)continue;
+    const c=carros.find(c=>c.v===v);
+    ws.send(JSON.stringify({t:'to',v,d:{
+      fase, pos:c?c.pos:0, volta:c?Math.min(Math.max(c.volta,0)+1,VOLTAS):1, voltas:VOLTAS,
+      item:c?c.item:null, rank:c?c.rank:0, nome:c?c.nome:'', total:carros.length
+    }}));
+  }
+}
+
+/* ---------- som ---------- */
+let ac=null;
+function bip(f,d,tipo){
+  try{
+    if(!ac)ac=new (window.AudioContext||window.webkitAudioContext)();
+    if(ac.state==='suspended')ac.resume();
+    const o=ac.createOscillator(),g=ac.createGain();
+    o.type=tipo||'triangle';o.frequency.value=f;
+    g.gain.setValueAtTime(.12,ac.currentTime);
+    g.gain.exponentialRampToValueAtTime(.001,ac.currentTime+d);
+    o.connect(g).connect(ac.destination);o.start();o.stop(ac.currentTime+d);
+  }catch(e){}
+}
+addEventListener('pointerdown',()=>{if(ac&&ac.state==='suspended')ac.resume();});
+
+/* ---------- teclado do operador ---------- */
+addEventListener('keydown',e=>{
+  const k=e.key.toLowerCase();
+  if(k==='s'&&fase==='lobby')comecaCorrida();       // forçar largada
+  if(k==='r')voltaLobby();                           // voltar ao lobby
+  if(k==='f')document.documentElement.requestFullscreen?.();
+});
+
+/* ---------- escala ---------- */
+function ajusta(){
+  const s=Math.min(innerWidth/W,innerHeight/H);
+  document.getElementById('palco').style.transform=`translate(-50%,-50%) scale(${s})`;
+}
+addEventListener('resize',ajusta);ajusta();
+</script>
+</body>
+</html>

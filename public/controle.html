@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#0b0f14">
+<meta name="mobile-web-app-capable" content="yes">
+<title>Rali 4 Climas — Controle</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;
+    -webkit-user-select:none;user-select:none;touch-action:manipulation}
+  html,body{height:100%;overscroll-behavior:none;background:#0b0f14;color:#fff;
+    font-family:'Bahnschrift','Segoe UI',system-ui,-apple-system,sans-serif}
+  body{display:flex;flex-direction:column;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom)}
+  .tela{display:none;flex:1;flex-direction:column}
+  .tela.on{display:flex}
+
+  .topo{padding:14px 18px;display:flex;align-items:center;gap:12px;border-bottom:2px solid #1c232e}
+  .pino{width:22px;height:22px;border-radius:50%;background:var(--cor,#888);flex:none}
+  .topo b{font-size:19px;letter-spacing:.1em;text-transform:uppercase}
+  .topo span{margin-left:auto;font-size:15px;color:#7b8ca1}
+
+  /* entrada */
+  #entrar{padding:34px 26px;justify-content:center;gap:16px;text-align:center}
+  #entrar h1{font-size:40px;line-height:1;text-transform:uppercase;letter-spacing:-.01em}
+  #entrar h1 em{font-style:normal;color:var(--cor,#e8b969)}
+  #entrar p{color:#8fa1b6;font-size:17px;line-height:1.45}
+  input{width:100%;padding:20px;border-radius:16px;border:2px solid #263041;background:#131923;
+    color:#fff;font-size:24px;text-align:center;font-family:inherit;text-transform:uppercase}
+  input:focus{outline:none;border-color:var(--cor,#e8b969)}
+  .btn{padding:22px;border-radius:16px;border:none;background:var(--cor,#e8b969);color:#0b0f14;
+    font-size:23px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;font-family:inherit;width:100%}
+  .btn.vazio{background:#131923;color:#fff;border:2px solid #263041}
+
+  /* espera */
+  #espera{padding:30px 26px;justify-content:center;gap:22px;text-align:center}
+  #espera .grande{font-size:76px}
+  #espera h2{font-size:30px;text-transform:uppercase;letter-spacing:.06em}
+  #espera p{color:#8fa1b6;font-size:17px}
+  .prontao{background:#37d67a;color:#062a14}
+
+  /* corrida */
+  #jogo{gap:10px;padding:10px 12px 12px}
+  .chips{display:flex;gap:10px}
+  .chip{flex:1;background:#131923;border-radius:14px;padding:10px;text-align:center}
+  .chip small{display:block;color:#63748a;font-size:12px;letter-spacing:.16em}
+  .chip b{font-size:30px;line-height:1.1}
+  #item{flex:none;height:20vh;min-height:120px;border-radius:20px;background:#131923;
+    border:3px dashed #26303f;display:flex;flex-direction:column;align-items:center;
+    justify-content:center;gap:2px;color:#4d5b6d;font-size:16px;letter-spacing:.16em}
+  #item .ico{font-size:56px;line-height:1}
+  #item.tem{background:#1d2432;border:3px solid var(--cor,#e8b969);color:var(--cor,#e8b969);
+    animation:pulsa 1.1s infinite}
+  #item.tem .rot{font-size:20px;font-weight:700;letter-spacing:.14em}
+  @keyframes pulsa{50%{transform:scale(.985);filter:brightness(1.25)}}
+  .volante{flex:1;display:flex;gap:10px;min-height:0}
+  .seta{flex:1;background:#151c26;border-radius:22px;display:flex;align-items:center;
+    justify-content:center;font-size:74px;color:#6b7d92}
+  .seta.ativa{background:var(--cor,#e8b969);color:#0b0f14}
+  #freio{flex:none;height:9vh;min-height:62px;background:#151c26;border-radius:18px;
+    display:flex;align-items:center;justify-content:center;font-size:20px;letter-spacing:.2em;color:#6b7d92}
+  #freio.ativa{background:#3a2020;color:#ff6b5a}
+
+  /* aviso */
+  #erro{padding:40px 28px;justify-content:center;gap:18px;text-align:center}
+  #erro .grande{font-size:64px}
+  #erro p{font-size:20px;color:#c9d6e3;line-height:1.5}
+  .livres{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-top:6px}
+  .livres a{padding:14px 20px;border-radius:14px;background:#131923;color:#fff;
+    text-decoration:none;font-size:18px;border:2px solid #263041}
+</style>
+</head>
+<body>
+
+<div id="entrar" class="tela on">
+  <h1>Carro<br><em id="corNome">—</em></h1>
+  <p>Escolha seu apelido e prepare o dedo: quem passa primeiro pela neve leva.</p>
+  <input id="apelido" maxlength="12" placeholder="SEU APELIDO" autocomplete="off">
+  <button class="btn" id="btEntrar">Entrar na corrida</button>
+</div>
+
+<div id="espera" class="tela">
+  <div class="topo" style="width:100%"><i class="pino"></i><b id="t2">—</b><span id="s2">Sala</span></div>
+  <div class="grande">🏁</div>
+  <h2>Você está na pista</h2>
+  <p>A largada acontece quando todos os pilotos confirmarem.</p>
+  <button class="btn prontao" id="btPronto">Estou pronto</button>
+</div>
+
+<div id="jogo" class="tela">
+  <div class="chips">
+    <div class="chip"><small>POSIÇÃO</small><b id="pos">—</b></div>
+    <div class="chip"><small>VOLTA</small><b id="volta">1/3</b></div>
+  </div>
+  <div id="item"><div class="ico">📦</div><div class="rot">SEM ITEM</div></div>
+  <div class="volante">
+    <div class="seta" id="esq">◀</div>
+    <div class="seta" id="dir">▶</div>
+  </div>
+  <div id="freio">FREIO</div>
+</div>
+
+<div id="erro" class="tela">
+  <div class="grande">🚧</div>
+  <p id="erroTxt"></p>
+  <div class="livres" id="livres"></div>
+</div>
+
+<script>
+const q=new URLSearchParams(location.search);
+const SALA=(q.get('s')||'').toUpperCase(), VAGA=Number(q.get('v')||0);
+const CORES={1:'#ff3b30',2:'#3d8bff',3:'#ffcc22',4:'#37d67a'};
+const NOMES={1:'Vermelho',2:'Azul',3:'Amarelo',4:'Verde'};
+const ITENS={oleo:['🛢️','ÓLEO NA PISTA'],buraco:['🕳️','ABRIR BURACO'],
+             lata:['🥫','JOGAR LATA'],turbo:['⚡','TURBO']};
+document.documentElement.style.setProperty('--cor',CORES[VAGA]||'#e8b969');
+document.getElementById('corNome').textContent=NOMES[VAGA]||'?';
+document.querySelectorAll('.pino').forEach(p=>p.style.background=CORES[VAGA]);
+document.getElementById('t2').textContent='Carro '+(NOMES[VAGA]||'');
+document.getElementById('s2').textContent='Sala '+SALA;
+
+const tela=id=>document.querySelectorAll('.tela').forEach(t=>t.classList.toggle('on',t.id===id));
+const vibra=ms=>{try{navigator.vibrate&&navigator.vibrate(ms);}catch(e){}};
+
+/* ---- rede ---- */
+let ws,entrou=false,pronto=false;
+// funciona na raiz do domínio ou numa subpasta (ex.: /rally)
+const BASE=location.pathname.replace(/\/[^/]*$/,'');
+function conecta(){
+  ws=new WebSocket((location.protocol==='https:'?'wss://':'ws://')+location.host+BASE);
+  ws.onopen=()=>{if(entrou)envia({t:'join',code:SALA,slot:VAGA,name:nome});};
+  ws.onmessage=e=>{
+    const m=JSON.parse(e.data);
+    if(m.t==='ok'){tela('espera');vibra(40);}
+    if(m.t==='err'){
+      document.getElementById('erroTxt').textContent=m.m;
+      const l=document.getElementById('livres');l.innerHTML='';
+      (m.free||[]).forEach(v=>{const a=document.createElement('a');
+        a.href=`${BASE}/controle?s=${SALA}&v=${v}`;a.textContent='Carro '+NOMES[v];
+        a.style.borderColor=CORES[v];l.appendChild(a);});
+      tela('erro');
+    }
+    if(m.t==='st')estado(m.d);
+  };
+  ws.onclose=()=>setTimeout(conecta,1200);
+}
+const envia=o=>{if(ws&&ws.readyState===1)ws.send(JSON.stringify(o));};
+
+let nome='';
+document.getElementById('btEntrar').onclick=()=>{
+  nome=(document.getElementById('apelido').value.trim()||'Piloto '+VAGA).slice(0,12);
+  entrou=true;
+  document.body.requestFullscreen?.().catch(()=>{});
+  acorda();
+  if(ws&&ws.readyState===1)envia({t:'join',code:SALA,slot:VAGA,name:nome});
+};
+document.getElementById('btPronto').onclick=e=>{
+  pronto=!pronto;envia({t:'ready',v:pronto});vibra(30);
+  e.target.textContent=pronto?'Aguardando os outros…':'Estou pronto';
+  e.target.classList.toggle('vazio',pronto);
+  e.target.classList.toggle('prontao',!pronto);
+};
+
+/* ---- estado vindo da tela ---- */
+let faseAtual='';
+function estado(d){
+  if(d.fase!==faseAtual){
+    faseAtual=d.fase;
+    if(d.fase==='countdown'||d.fase==='race'){tela('jogo');vibra(60);}
+    if(d.fase==='fim'){
+      tela('espera');pronto=false;   // a tela já zerou; confirmar aqui vale para a próxima
+      const b=document.getElementById('btPronto');
+      b.textContent=d.rank?`Você foi ${d.rank}º · jogar de novo`:'Jogar de novo';
+      b.className='btn prontao';vibra([60,60,120]);
+    }
+    if(d.fase==='lobby'){tela('espera');}
+  }
+  document.getElementById('pos').textContent=d.pos?d.pos+'º':'—';
+  document.getElementById('volta').textContent=`${d.volta}/${d.voltas}`;
+  const it=document.getElementById('item');
+  const tem=!!d.item;
+  if(tem!==it.classList.contains('tem'))vibra(tem?45:20);
+  it.classList.toggle('tem',tem);
+  it.querySelector('.ico').textContent=tem?ITENS[d.item][0]:'📦';
+  it.querySelector('.rot').textContent=tem?ITENS[d.item][1]:'PEGUE UMA CAIXA';
+}
+
+/* ---- controles ---- */
+let dir=0,freio=0,uso=0,ultimo=0;
+function toca(el,liga,desliga){
+  const on=e=>{e.preventDefault();el.classList.add('ativa');liga();manda(true);};
+  const off=e=>{e.preventDefault();el.classList.remove('ativa');desliga&&desliga();manda(true);};
+  el.addEventListener('pointerdown',on);
+  el.addEventListener('pointerup',off);
+  el.addEventListener('pointercancel',off);
+  el.addEventListener('pointerleave',off);
+}
+toca(document.getElementById('esq'),()=>dir=-1,()=>{if(dir<0)dir=0;});
+toca(document.getElementById('dir'),()=>dir=1,()=>{if(dir>0)dir=0;});
+toca(document.getElementById('freio'),()=>freio=1,()=>freio=0);
+document.getElementById('item').addEventListener('pointerdown',e=>{
+  e.preventDefault();
+  if(!document.getElementById('item').classList.contains('tem'))return;
+  uso++;vibra(70);manda(true);
+});
+function manda(forca){
+  const t=performance.now();
+  if(!forca&&t-ultimo<90)return;
+  ultimo=t;envia({t:'in',s:dir,b:freio,u:uso});
+}
+setInterval(()=>manda(),100);
+
+/* ---- tela sempre acesa ---- */
+async function acorda(){try{await navigator.wakeLock.request('screen');}catch(e){}}
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)acorda();});
+document.addEventListener('gesturestart',e=>e.preventDefault());
+document.addEventListener('touchmove',e=>e.preventDefault(),{passive:false});
+
+if(!SALA||!VAGA){document.getElementById('erroTxt').textContent=
+  'Link incompleto. Escaneie o QR Code direto na tela do jogo.';tela('erro');}
+else conecta();
+</script>
+</body>
+</html>

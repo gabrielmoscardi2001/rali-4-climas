@@ -1,0 +1,19 @@
+{
+  "name": "rali-4-climas",
+  "version": "1.0.0",
+  "description": "Corrida multiplayer em tela vertical com celular como controle",
+  "main": "index.js",
+  "scripts": {
+    "start": "node server.js",
+    "sim": "node teste-sim.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^5.2.1",
+    "qrcode": "^1.5.4",
+    "ws": "^8.21.3"
+  },
+  "private": true
+}
